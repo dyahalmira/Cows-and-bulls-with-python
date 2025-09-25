@@ -1,18 +1,21 @@
 import streamlit as st
+# (Semua import lainnya tetap sama)
 import random
 import pandas as pd
 import numpy as np
 
-# --- 0. FUNGSI UTILITY KHUSUS STREAMLIT ---
 
-def tampilkan_health_bar(max_bulls):
+# --- FUNGSI TAMPILAN HEALTH BAR (SAMA DENGAN SEBELUMNYA) ---
+
+def tampilkan_health_bar(current_bulls):
     """
-    Menampilkan progress bar kustom yang meniru health bar (dari 0 hingga 4 Bulls).
-    Ini menunjukkan Bulls tertinggi yang pernah dicapai.
+    Menampilkan progress bar kustom yang meniru health bar.
+    current_bulls adalah jumlah Bulls dari tebakan terakhir.
     """
-    persen = int((max_bulls / 4) * 100)
+    # Pastikan tidak ada pembagian dengan nol jika max_bulls_tertinggi masih 0
+    persen = int((current_bulls / 4) * 100) if current_bulls > 0 else 0
     
-    # Menentukan warna berdasarkan persentase (mirip game: Hijau/Kuning/Merah)
+    # Menentukan warna berdasarkan persentase
     if persen == 100:
         warna = "#2ecc71"  # Hijau (Penuh/Menang)
     elif persen >= 50:
@@ -20,10 +23,10 @@ def tampilkan_health_bar(max_bulls):
     else:
         warna = "#e74c3c"  # Merah (Rendah)
         
-    # Menggunakan HTML/CSS kustom untuk bar (membutuhkan st.markdown dengan unsafe_allow_html=True)
+    # Menggunakan HTML/CSS kustom untuk bar
     st.markdown(f"""
         <div style="font-weight: bold; font-size: 1.1em; margin-bottom: 5px;">
-            PROGRESS KEMENANGAN (4 BULLS):
+            PROGRESS TEBAKAN TERAKHIR (4 BULLS):
         </div>
         <div style="background-color: #ddd; border: 2px solid #333; border-radius: 5px; height: 35px; margin-bottom: 15px;">
             <div style="
@@ -33,142 +36,20 @@ def tampilkan_health_bar(max_bulls):
                 border-radius: 3px; 
                 text-align: right; 
                 line-height: 35px; 
-                color: #222; /* Warna teks di dalam bar */
+                color: #222; 
                 font-weight: bold;
                 padding-right: 10px;
                 transition: width 0.5s;">
-                {persen}% ({max_bulls}/4 Bulls)
+                {persen}% ({current_bulls}/4 Bulls)
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-# --- 1. LOGIKA INTI GAME ---
 
-def hitung_cows_bulls(tebakan, rahasia):
-    """Menghitung jumlah Bulls dan Cows."""
-    bulls = 0
-    cows = 0
-    tebakan_list = list(tebakan)
-    rahasia_list = list(rahasia)
+# (Semua fungsi lain: hitung_cows_bulls, generate_kata_kunci_acak, inisialisasi_state, mulai_game, proses_tebakan tetap sama)
 
-    # Hitung Bulls dan Tandai dengan None
-    for i in range(4): 
-        if tebakan_list[i] == rahasia_list[i]:
-            bulls += 1
-            rahasia_list[i] = tebakan_list[i] = None 
 
-    # Hitung Cows
-    tebakan_sisa = [char for char in tebakan_list if char is not None]
-    rahasia_sisa = [char for char in rahasia_list if char is not None]
-    
-    for char in tebakan_sisa:
-        if char in rahasia_sisa:
-            cows += 1
-            rahasia_sisa.remove(char)
-            
-    return bulls, cows
-
-def generate_kata_kunci_acak(mode):
-    """Membuat kunci rahasia 4 karakter unik."""
-    TARGET_LENGTH = 4
-    if mode == "angka":
-        digits = list("0123456789")
-        random.shuffle(digits)
-        kata_kunci = "".join(digits[:TARGET_LENGTH])
-        validasi = "Angka Unik"
-        MAX_GUESSES = 12
-    elif mode == "kata":
-        unique_words = ["love", "park", "fire", "hope", "jump", "talk", "many", "rule", "sink", "read"]
-        kata_kunci = random.choice(unique_words)
-        validasi = "Huruf Unik"
-        MAX_GUESSES = 10 
-        
-    return kata_kunci, validasi, MAX_GUESSES
-
-# --- 2. MANAJEMEN STATE STREAMLIT ---
-
-def inisialisasi_state(mode_setelah_reset=None):
-    """Mengatur semua variabel di st.session_state (Memori Aplikasi Web)."""
-    # Reset semua variabel ke kondisi awal
-    st.session_state.kata_kunci_rahasia = None
-    st.session_state.mode = mode_setelah_reset
-    st.session_state.validasi_tipe = ""
-    st.session_state.tebakan_ke = 0
-    st.session_state.riwayat_sesi = []
-    st.session_state.game_active = False
-    st.session_state.max_guesses = 0
-    st.session_state.max_bulls_tertinggi = 0 # Variabel baru untuk Health Bar
-    st.session_state.input_tebakan = "" 
-
-def mulai_game(mode_pilihan):
-    """Meriset state dan memulai game baru."""
-    kunci, tipe, batas_tebakan = generate_kata_kunci_acak(mode_pilihan)
-    
-    st.session_state.kata_kunci_rahasia = kunci
-    st.session_state.validasi_tipe = tipe
-    st.session_state.max_guesses = batas_tebakan
-    st.session_state.mode = mode_pilihan
-    st.session_state.tebakan_ke = 1
-    st.session_state.riwayat_sesi = []
-    st.session_state.game_active = True
-    st.session_state.max_bulls_tertinggi = 0
-    st.session_state.input_tebakan = "" 
-
-def proses_tebakan(tebakan):
-    """Memproses tebakan pengguna dan memperbarui state."""
-    
-    tebakan = tebakan.lower().strip()
-    
-    # 1. Validasi Input
-    if len(tebakan) != 4 or len(set(tebakan)) != 4:
-        st.error(f"Tebakan harus 4 {st.session_state.validasi_tipe} unik!")
-        return
-    if st.session_state.mode == "angka" and not tebakan.isdigit():
-        st.error("Hanya boleh angka!")
-        return
-    if st.session_state.mode == "kata" and not tebakan.isalpha():
-        st.error("Hanya boleh huruf!")
-        return
-
-    # 2. Hitung Hasil
-    bulls, cows = hitung_cows_bulls(tebakan, st.session_state.kata_kunci_rahasia)
-
-    # 3. Update Variabel Khusus Health Bar
-    if bulls > st.session_state.max_bulls_tertinggi:
-        st.session_state.max_bulls_tertinggi = bulls
-    
-    # 4. Update Riwayat
-    st.session_state.riwayat_sesi.append({
-        'No.': st.session_state.tebakan_ke,
-        'Tebakan': tebakan.upper(),
-        'Bulls': bulls,
-        'Cows': cows
-    })
-    
-    # 5. Cek Kemenangan
-    if tebakan == st.session_state.kata_kunci_rahasia:
-        st.balloons()
-        st.success(f"🥳 SELAMAT! Anda menang dalam {st.session_state.tebakan_ke} kali percobaan!")
-        st.session_state.game_active = False 
-        return
-
-    # 6. Cek Batas Tebakan
-    st.session_state.tebakan_ke += 1
-    if st.session_state.tebakan_ke > st.session_state.max_guesses:
-        st.error(f"❌ Anda kalah! Kunci rahasianya adalah: **{st.session_state.kata_kunci_rahasia.upper()}**")
-        st.session_state.game_active = False
-        return
-
-    # 7. Feedback Instan
-    if bulls > 0 or cows > 0:
-        st.info(f"Umpan Balik: Bulls: {bulls} | Cows: {cows}")
-    else:
-        st.warning("Umpan Balik: Tidak ada yang benar.")
-    
-    # Kosongkan input
-    st.session_state.input_tebakan = "" 
-
-# --- 3. TAMPILAN UTAMA STREAMLIT ---
+# --- FUNGSI UTAMA (HANYA BAGIAN TAMPILAN YANG BERUBAH) ---
 
 def main_app():
     
@@ -181,6 +62,7 @@ def main_app():
     st.markdown("---")
     
     # --- Pilihan Mode (Menu Utama) ---
+    # (Tetap Sama)
     if not st.session_state.game_active:
         st.header("Pilih Mode Permainan")
         
@@ -191,7 +73,6 @@ def main_app():
             st.button("🔠 Mode Kata (10x Coba)", on_click=mulai_game, args=("kata",), type="secondary")
         
         st.markdown("---")
-        # Fitur Rules (Expander)
         with st.expander("❓ Aturan Main (Wajib Baca!)"):
             st.write("""
             **Tujuan:** Menebak 4 karakter unik (angka/huruf) rahasia.
@@ -209,7 +90,7 @@ def main_app():
         # A. Game Control & Input
         with col_game:
             
-            # --- Progress Bar Batas Tebakan ---
+            # Progress Bar Batas Tebakan
             progress_val = (st.session_state.tebakan_ke - 1) / st.session_state.max_guesses
             st.progress(progress_val, text=f"Progress Sesi: {st.session_state.tebakan_ke - 1} dari {st.session_state.max_guesses} tebakan.")
             
@@ -239,8 +120,13 @@ def main_app():
         # B. Riwayat Permainan dan Health Bar
         with col_history:
             
-            # --- HEALTH BAR KUSTOM (Fitur Spesial) ---
-            tampilkan_health_bar(st.session_state.max_bulls_tertinggi)
+            # --- LOGIKA BARU UNTUK HEALTH BAR RESPONSIVE ---
+            bulls_terakhir = 0
+            if st.session_state.riwayat_sesi:
+                # Ambil nilai Bulls dari item terakhir di list riwayat (Dictionary)
+                bulls_terakhir = st.session_state.riwayat_sesi[-1].get('Bulls', 0)
+            
+            tampilkan_health_bar(bulls_terakhir)
             
             st.markdown("### Tabel Detail Riwayat")
             
@@ -256,4 +142,5 @@ def main_app():
 
 # --- JALANKAN APLIKASI ---
 if __name__ == "__main__":
-    main_app()
+    # (Fungsi ini menjalankan keseluruhan aplikasi)
+    # (As
