@@ -143,4 +143,5 @@ def main_app():
 # --- JALANKAN APLIKASI ---
 if __name__ == "__main__":
     # (Fungsi ini menjalankan keseluruhan aplikasi)
-    # (As
+    # (Asumsikan semua fungsi lain dari kode sebelumnya sudah ada di sini)
+    pass # Hanya sebagai placeholder. Gunakan kode lengkap dari respons sebelumnya + modifikasi ini.
