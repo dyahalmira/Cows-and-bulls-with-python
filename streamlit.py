@@ -3,6 +3,45 @@ import random
 import pandas as pd
 import numpy as np
 
+# --- 0. FUNGSI UTILITY KHUSUS STREAMLIT ---
+
+def tampilkan_health_bar(max_bulls):
+    """
+    Menampilkan progress bar kustom yang meniru health bar (dari 0 hingga 4 Bulls).
+    Ini menunjukkan Bulls tertinggi yang pernah dicapai.
+    """
+    persen = int((max_bulls / 4) * 100)
+    
+    # Menentukan warna berdasarkan persentase (mirip game: Hijau/Kuning/Merah)
+    if persen == 100:
+        warna = "#2ecc71"  # Hijau (Penuh/Menang)
+    elif persen >= 50:
+        warna = "#f1c40f"  # Kuning (Sedang)
+    else:
+        warna = "#e74c3c"  # Merah (Rendah)
+        
+    # Menggunakan HTML/CSS kustom untuk bar (membutuhkan st.markdown dengan unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="font-weight: bold; font-size: 1.1em; margin-bottom: 5px;">
+            PROGRESS KEMENANGAN (4 BULLS):
+        </div>
+        <div style="background-color: #ddd; border: 2px solid #333; border-radius: 5px; height: 35px; margin-bottom: 15px;">
+            <div style="
+                background-color: {warna}; 
+                height: 100%; 
+                width: {persen}%; 
+                border-radius: 3px; 
+                text-align: right; 
+                line-height: 35px; 
+                color: #222; /* Warna teks di dalam bar */
+                font-weight: bold;
+                padding-right: 10px;
+                transition: width 0.5s;">
+                {persen}% ({max_bulls}/4 Bulls)
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 # --- 1. LOGIKA INTI GAME ---
 
 def hitung_cows_bulls(tebakan, rahasia):
@@ -42,14 +81,14 @@ def generate_kata_kunci_acak(mode):
         unique_words = ["love", "park", "fire", "hope", "jump", "talk", "many", "rule", "sink", "read"]
         kata_kunci = random.choice(unique_words)
         validasi = "Huruf Unik"
-        MAX_GUESSES = 10 # Batasan tebakan untuk mode kata
+        MAX_GUESSES = 10 
         
     return kata_kunci, validasi, MAX_GUESSES
 
-# --- 2. MANAJEMEN STATE STREAMLIT & UTILITY ---
+# --- 2. MANAJEMEN STATE STREAMLIT ---
 
 def inisialisasi_state(mode_setelah_reset=None):
-    """Mengatur semua variabel yang dibutuhkan di st.session_state."""
+    """Mengatur semua variabel di st.session_state (Memori Aplikasi Web)."""
     # Reset semua variabel ke kondisi awal
     st.session_state.kata_kunci_rahasia = None
     st.session_state.mode = mode_setelah_reset
@@ -58,7 +97,8 @@ def inisialisasi_state(mode_setelah_reset=None):
     st.session_state.riwayat_sesi = []
     st.session_state.game_active = False
     st.session_state.max_guesses = 0
-    st.session_state.input_tebakan = "" # Untuk mengontrol kolom input
+    st.session_state.max_bulls_tertinggi = 0 # Variabel baru untuk Health Bar
+    st.session_state.input_tebakan = "" 
 
 def mulai_game(mode_pilihan):
     """Meriset state dan memulai game baru."""
@@ -71,7 +111,8 @@ def mulai_game(mode_pilihan):
     st.session_state.tebakan_ke = 1
     st.session_state.riwayat_sesi = []
     st.session_state.game_active = True
-    st.session_state.input_tebakan = "" # Kosongkan input
+    st.session_state.max_bulls_tertinggi = 0
+    st.session_state.input_tebakan = "" 
 
 def proses_tebakan(tebakan):
     """Memproses tebakan pengguna dan memperbarui state."""
@@ -92,7 +133,11 @@ def proses_tebakan(tebakan):
     # 2. Hitung Hasil
     bulls, cows = hitung_cows_bulls(tebakan, st.session_state.kata_kunci_rahasia)
 
-    # 3. Update Riwayat
+    # 3. Update Variabel Khusus Health Bar
+    if bulls > st.session_state.max_bulls_tertinggi:
+        st.session_state.max_bulls_tertinggi = bulls
+    
+    # 4. Update Riwayat
     st.session_state.riwayat_sesi.append({
         'No.': st.session_state.tebakan_ke,
         'Tebakan': tebakan.upper(),
@@ -100,34 +145,34 @@ def proses_tebakan(tebakan):
         'Cows': cows
     })
     
-    # 4. Cek Kemenangan
+    # 5. Cek Kemenangan
     if tebakan == st.session_state.kata_kunci_rahasia:
         st.balloons()
         st.success(f"🥳 SELAMAT! Anda menang dalam {st.session_state.tebakan_ke} kali percobaan!")
         st.session_state.game_active = False 
         return
 
-    # 5. Cek Batas Tebakan
+    # 6. Cek Batas Tebakan
     st.session_state.tebakan_ke += 1
     if st.session_state.tebakan_ke > st.session_state.max_guesses:
         st.error(f"❌ Anda kalah! Kunci rahasianya adalah: **{st.session_state.kata_kunci_rahasia.upper()}**")
         st.session_state.game_active = False
         return
 
-    # 6. Feedback Instan
+    # 7. Feedback Instan
     if bulls > 0 or cows > 0:
         st.info(f"Umpan Balik: Bulls: {bulls} | Cows: {cows}")
     else:
         st.warning("Umpan Balik: Tidak ada yang benar.")
     
-    # Kosongkan input untuk tebakan berikutnya
+    # Kosongkan input
     st.session_state.input_tebakan = "" 
 
 # --- 3. TAMPILAN UTAMA STREAMLIT ---
 
 def main_app():
     
-    # Panggil inisialisasi hanya jika variabel utama belum ada
+    # Panggil inisialisasi
     if 'game_active' not in st.session_state:
         inisialisasi_state()
     
@@ -150,8 +195,8 @@ def main_app():
         with st.expander("❓ Aturan Main (Wajib Baca!)"):
             st.write("""
             **Tujuan:** Menebak 4 karakter unik (angka/huruf) rahasia.
-            * **BULLS 🐂:** Jumlah karakter yang benar dan posisinya juga benar.
-            * **COWS 🐄:** Jumlah karakter yang benar, tetapi posisinya salah.
+            * **BULLS 🐂:** Jumlah karakter yang **benar dan posisinya juga benar**.
+            * **COWS 🐄:** Jumlah karakter yang **benar, tetapi posisinya salah**.
             """)
             
     # --- Tampilan Game Aktif ---
@@ -159,14 +204,14 @@ def main_app():
         st.subheader(f"Mode: {st.session_state.mode.upper()}")
         st.caption(f"Tebak {st.session_state.validasi_tipe} 4 karakter unik! Anda punya **{st.session_state.max_guesses - st.session_state.tebakan_ke + 1}** kesempatan lagi.")
 
-        col_game, col_viz = st.columns([1, 1])
+        col_game, col_history = st.columns([1, 1])
 
         # A. Game Control & Input
         with col_game:
             
-            # --- Progress Bar (Fitur Baru) ---
-            progress_val = st.session_state.tebakan_ke / st.session_state.max_guesses
-            st.progress(progress_val, text=f"Progress: {st.session_state.tebakan_ke - 1} dari {st.session_state.max_guesses} tebakan.")
+            # --- Progress Bar Batas Tebakan ---
+            progress_val = (st.session_state.tebakan_ke - 1) / st.session_state.max_guesses
+            st.progress(progress_val, text=f"Progress Sesi: {st.session_state.tebakan_ke - 1} dari {st.session_state.max_guesses} tebakan.")
             
             st.markdown("---")
             
@@ -191,22 +236,23 @@ def main_app():
             st.button("Kembali ke Menu Utama", on_click=inisialisasi_state, args=(None,))
 
 
-        # B. Riwayat Permainan dan Visualisasi
-        with col_viz:
-            st.markdown("### 📊 Riwayat Analisis")
+        # B. Riwayat Permainan dan Health Bar
+        with col_history:
+            
+            # --- HEALTH BAR KUSTOM (Fitur Spesial) ---
+            tampilkan_health_bar(st.session_state.max_bulls_tertinggi)
+            
+            st.markdown("### Tabel Detail Riwayat")
+            
             if st.session_state.riwayat_sesi:
-                # Mengubah List of Dict menjadi DataFrame (Fitur Baru)
+                # Mengubah List of Dict menjadi DataFrame (Pemanfaatan Pandas)
                 df_history = pd.DataFrame(st.session_state.riwayat_sesi)
                 df_history.set_index('No.', inplace=True)
                 
-                # Visualisasi (Bar Chart)
-                st.bar_chart(df_history[['Bulls', 'Cows']], color=['#FF5733', '#DAF7A6'])
-                
                 # Menampilkan Tabel Riwayat Mentah
-                st.markdown("### Tabel Detail")
                 st.dataframe(df_history, use_container_width=True)
             else:
-                st.info("Mulai tebak untuk melihat grafik dan riwayat.")
+                st.info("Mulai tebak untuk melihat detail.")
 
 # --- JALANKAN APLIKASI ---
 if __name__ == "__main__":
